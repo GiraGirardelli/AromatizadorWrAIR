@@ -41,6 +41,7 @@ float dnd_fim = 7.0;
 
 // Trava de segurança do Display
 bool sessao_provisionamento_encerrada = false; 
+unsigned long timestamp_fim_prov = 0;
 
 Servo meuServo;
 
@@ -55,55 +56,58 @@ static int gpio_switch = 2;
 
 static Switch *my_switch = NULL;
 
+void getHoraAtual(char *buffer, size_t tamanho) {
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)) {
+        strncpy(buffer, "--:--", tamanho);
+        return;
+    }
+    strftime(buffer, tamanho, "%H:%M", &timeinfo);
+}
+
 // --- FUNÇÃO DE DESENHO ---
-void atualizarTela(String titulo, String rodape, bool limpar = true) {
-    // 1. GUARDA DE SEGURANÇA (Essencial para RainMaker)
+// --- FUNÇÃO DE DESENHO AUTOMÁTICA ---
+void atualizarTela(String titulo, String rodape = "", bool limpar = true) {
+    // 1. GUARDA DE SEGURANÇA
     if (!sessao_provisionamento_encerrada && titulo != "SETUP") return;
 
     if (limpar) display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    // --- CABEÇALHO FIXO ---
+    // --- CABEÇALHO ---
     display.setTextSize(1);
     display.setCursor(0, 0);
     display.print(F("NEXUS")); 
-
-    // Ícone Wi-Fi Otimizado
     display.setCursor(110, 0); 
     if (WiFi.status() == WL_CONNECTED) display.print(F("(W)"));
     else display.print(F("(!)"));
-    
     display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
-    // --- LÓGICA DE EXIBIÇÃO ---
-    
-    // MODO STANDBY (Mostra Relógio Grande)
+    // --- LÓGICA ---
     if (titulo == "ONLINE") {
-        
-        // 1. HORA ATUAL (Centro - Grande)
-        // O loop passa a hora no parâmetro 'rodape' quando chama "ONLINE"
-        String horaGrande = rodape; 
-        
+        // AQUI É A MUDANÇA: A própria função busca a hora atual!
+        char horaBuff[10];
+        getHoraAtual(horaBuff, sizeof(horaBuff));
+
+        // Hora Grande (Centro)
         display.setTextSize(3);
-        // Centralização Manual (Fonte Tam 3 tem ~18px de largura)
-        // Cálculo: (128 - (5 letras * 18)) / 2 = ~19
-        int x_hora = (128 - (horaGrande.length() * 18)) / 2;
+        // Centralização aproximada (Tam 3 = ~18px largura)
+        int len = strlen(horaBuff);
+        int x_hora = (128 - (len * 18)) / 2;
         if(x_hora < 0) x_hora = 0;
         
         display.setCursor(x_hora, 22);
-        display.print(horaGrande);
+        display.print(horaBuff);
 
-        // 2. ÚLTIMO DISPARO (Rodapé)
+        // Rodapé (Último Disparo - Variável Global)
         display.setTextSize(1);
         display.setCursor(0, 54);
         display.print(F("Ultimo: "));
-        display.print(texto_ultimo_disparo); // Usa a variável global char[]
+        display.print(texto_ultimo_disparo);
     }
-    
-    // MODO AÇÃO (Spray, Cooldown, Bloqueado)
     else {
+        // MODO AÇÃO (Spray, etc)
         display.setTextSize(2);
-        // Centralização Manual (Fonte Tam 2 tem ~12px de largura)
         int x_titulo = (128 - (titulo.length() * 12)) / 2;
         if(x_titulo < 0) x_titulo = 0;
 
@@ -117,6 +121,8 @@ void atualizarTela(String titulo, String rodape, bool limpar = true) {
 
     display.display();
 }
+
+
 // Tela Estática de Boot
 void mostrarTelaPareamento() {
     display.clearDisplay();
@@ -139,14 +145,6 @@ void mostrarTelaPareamento() {
     display.display();
 }
 
-void getHoraAtual(char *buffer, size_t tamanho) {
-    struct tm timeinfo;
-    if(!getLocalTime(&timeinfo)) {
-        strncpy(buffer, "--:--", tamanho);
-        return;
-    }
-    strftime(buffer, tamanho, "%H:%M", &timeinfo);
-}
 
 // --- CORREÇÃO AQUI ---
 void sysProvEvent(arduino_event_t *sys_event)
@@ -173,6 +171,7 @@ void sysProvEvent(arduino_event_t *sys_event)
         // Este evento acontece sozinho quando o App RainMaker termina o trabalho.
         Serial.println("\n--- FIM DO PROVISIONAMENTO ---");
         sessao_provisionamento_encerrada = true;
+        timestamp_fim_prov = millis();
         break;
 
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
@@ -396,14 +395,36 @@ void setup()
 void loop()
 {
     static unsigned long ultimoUpdate = 0;
-    
-    // SÓ ATUALIZA TELA SE O APP JÁ TERMINOU TUDO E ESTAMOS CONECTADOS
+
+    // SÓ RODA SE TIVER CONECTADO E CONFIGURADO
     if (sessao_provisionamento_encerrada && WiFi.status() == WL_CONNECTED) {
-        if (millis() - ultimoUpdate > 60000) { 
-            // Cria buffer temporário para passar a hora
-            char horaBuff[10];
-            getHoraAtual(horaBuff, sizeof(horaBuff)); 
-            atualizarTela("ONLINE", horaBuff);
+        
+        // --- 1. TRAVA DE SEGURANÇA (3 Segundos iniciais) ---
+        // Se acabou de configurar, espera 3s antes de mexer na tela para não reiniciar
+        if (timestamp_fim_prov != 0) {
+            if (millis() - timestamp_fim_prov < 3000) {
+                // Ainda está no "tempo de silêncio". Não faz nada.
+                return; 
+            } else {
+                // Passou dos 3s! Libera o sistema.
+                timestamp_fim_prov = 0; 
+                ultimoUpdate = 0; // Força a atualização agora
+            }
+        }
+
+        // --- 2. INTERVALO INTELIGENTE ---
+        // Verifica se o relógio já sincronizou
+        long intervalo = 60000; // Padrão: 1 minuto
+        struct tm timeinfo;
+        
+        // Se NÃO conseguir pegar a hora (getLocalTime falhar), tenta rapidinho (2s)
+        if(!getLocalTime(&timeinfo)){
+            intervalo = 2000; 
+        }
+
+        // --- 3. ATUALIZA A TELA ---
+        if (millis() - ultimoUpdate > intervalo) { 
+            atualizarTela("ONLINE");
             ultimoUpdate = millis();
         }
     }
