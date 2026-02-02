@@ -55,28 +55,76 @@ static Switch *my_switch = NULL;
 
 // --- FUNÇÃO DE DESENHO ---
 void atualizarTela(String titulo, String rodape, bool limpar = true) {
-    // Só desenha se o processo já acabou totalmente
+    // 1. GUARDA DE SEGURANÇA (CRÍTICA)
+    // Se o provisionamento não acabou e não é a tela de Setup, NÃO DESENHA NADA.
+    // Isso evita que o display trave a conexão do Wi-Fi/Bluetooth.
     if (!sessao_provisionamento_encerrada && titulo != "SETUP") return;
 
     if (limpar) display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
-    
+
+    // --- CABEÇALHO FIXO (STATUS) ---
     display.setTextSize(1);
-    display.setCursor(0, 0); 
-    display.print("NEXUS AROMA"); 
+    display.setCursor(0, 0);
+    display.print("NEXUS"); 
+    
+    // Mostra um pequeno indicador de Wi-Fi no canto
+    display.setCursor(105, 0); 
+    if (WiFi.status() == WL_CONNECTED) display.print("(W)");
+    else display.print("(!)");
+    
     display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
-    display.setTextSize(2);
-    display.setCursor(0, 25);
-    display.println(titulo);
+    // --- LÓGICA DE PERSONALIZAÇÃO (DASHBOARD) ---
+    
+    // CENÁRIO 1: O loop mandou a hora no título (Ex: "14:30")
+    // Desenha o relógio GRANDE no meio
+    if (titulo.indexOf(':') != -1 && titulo.length() <= 5) {
+        display.setTextSize(3); // Fonte Grande (Dashboard)
+        
+        // Centraliza o relógio (Cálculo: 128 largura total - largura do texto)
+        // Cada caractere tam 3 tem aprox 18 pixels de largura
+        int x = (128 - (titulo.length() * 18)) / 2; 
+        if(x < 0) x = 0;
+        
+        display.setCursor(x, 25);
+        display.print(titulo);
+        
+        // Coloca a info extra (Ex: "Last: 12:00") bem pequena no rodapé
+        display.setTextSize(1);
+        display.setCursor(0, 55);
+        display.print(rodape);
+    }
+    
+    // CENÁRIO 2: O loop mandou "ONLINE" e a hora está no rodapé
+    else if (titulo == "ONLINE") {
+        display.setTextSize(3); // A hora do rodapé vira destaque
+        
+        // Centraliza
+        int x = (128 - (rodape.length() * 18)) / 2;
+        if(x < 0) x = 0;
+        
+        display.setCursor(x, 25);
+        display.print(rodape); 
+        
+        display.setTextSize(1);
+        display.setCursor(40, 55); // Centraliza "Standby"
+        display.print("Standby");
+    }
+    
+    // CENÁRIO 3: Avisos normais (SPRAY!, COOLDOWN, BLOQUEADO)
+    else {
+        display.setTextSize(2); // Texto Médio para alertas
+        display.setCursor(0, 25);
+        display.println(titulo);
 
-    display.setTextSize(1);
-    display.setCursor(0, 55);
-    display.println(rodape);
+        display.setTextSize(1);
+        display.setCursor(0, 55);
+        display.println(rodape);
+    }
 
     display.display();
 }
-
 // Tela Estática de Boot
 void mostrarTelaPareamento() {
     display.clearDisplay();
