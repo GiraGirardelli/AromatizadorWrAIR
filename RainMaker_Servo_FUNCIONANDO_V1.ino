@@ -30,6 +30,8 @@ int angulo_aperto = 95;
 #define TEMPO_APERTO   1000 
 int qtd_disparos = 1; 
 
+char texto_ultimo_disparo[10] = "--:--";
+
 // Controles
 unsigned long momento_liberacao = 0; 
 #define TEMPO_COOLDOWN 1000 
@@ -55,72 +57,62 @@ static Switch *my_switch = NULL;
 
 // --- FUNÇÃO DE DESENHO ---
 void atualizarTela(String titulo, String rodape, bool limpar = true) {
-    // 1. GUARDA DE SEGURANÇA (CRÍTICA)
-    // Se o provisionamento não acabou e não é a tela de Setup, NÃO DESENHA NADA.
-    // Isso evita que o display trave a conexão do Wi-Fi/Bluetooth.
+    // 1. GUARDA DE SEGURANÇA (Essencial para RainMaker)
     if (!sessao_provisionamento_encerrada && titulo != "SETUP") return;
 
     if (limpar) display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    // --- CABEÇALHO FIXO (STATUS) ---
+    // --- CABEÇALHO FIXO ---
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.print("NEXUS"); 
-    
-    // Mostra um pequeno indicador de Wi-Fi no canto
-    display.setCursor(105, 0); 
-    if (WiFi.status() == WL_CONNECTED) display.print("(W)");
-    else display.print("(!)");
+    display.print(F("NEXUS")); 
+
+    // Ícone Wi-Fi Otimizado
+    display.setCursor(110, 0); 
+    if (WiFi.status() == WL_CONNECTED) display.print(F("(W)"));
+    else display.print(F("(!)"));
     
     display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
-    // --- LÓGICA DE PERSONALIZAÇÃO (DASHBOARD) ---
+    // --- LÓGICA DE EXIBIÇÃO ---
     
-    // CENÁRIO 1: O loop mandou a hora no título (Ex: "14:30")
-    // Desenha o relógio GRANDE no meio
-    if (titulo.indexOf(':') != -1 && titulo.length() <= 5) {
-        display.setTextSize(3); // Fonte Grande (Dashboard)
+    // MODO STANDBY (Mostra Relógio Grande)
+    if (titulo == "ONLINE") {
         
-        // Centraliza o relógio (Cálculo: 128 largura total - largura do texto)
-        // Cada caractere tam 3 tem aprox 18 pixels de largura
-        int x = (128 - (titulo.length() * 18)) / 2; 
-        if(x < 0) x = 0;
+        // 1. HORA ATUAL (Centro - Grande)
+        // O loop passa a hora no parâmetro 'rodape' quando chama "ONLINE"
+        String horaGrande = rodape; 
         
-        display.setCursor(x, 25);
-        display.print(titulo);
+        display.setTextSize(3);
+        // Centralização Manual (Fonte Tam 3 tem ~18px de largura)
+        // Cálculo: (128 - (5 letras * 18)) / 2 = ~19
+        int x_hora = (128 - (horaGrande.length() * 18)) / 2;
+        if(x_hora < 0) x_hora = 0;
         
-        // Coloca a info extra (Ex: "Last: 12:00") bem pequena no rodapé
+        display.setCursor(x_hora, 22);
+        display.print(horaGrande);
+
+        // 2. ÚLTIMO DISPARO (Rodapé)
         display.setTextSize(1);
-        display.setCursor(0, 55);
-        display.print(rodape);
+        display.setCursor(0, 54);
+        display.print(F("Ultimo: "));
+        display.print(texto_ultimo_disparo); // Usa a variável global char[]
     }
     
-    // CENÁRIO 2: O loop mandou "ONLINE" e a hora está no rodapé
-    else if (titulo == "ONLINE") {
-        display.setTextSize(3); // A hora do rodapé vira destaque
-        
-        // Centraliza
-        int x = (128 - (rodape.length() * 18)) / 2;
-        if(x < 0) x = 0;
-        
-        display.setCursor(x, 25);
-        display.print(rodape); 
-        
-        display.setTextSize(1);
-        display.setCursor(40, 55); // Centraliza "Standby"
-        display.print("Standby");
-    }
-    
-    // CENÁRIO 3: Avisos normais (SPRAY!, COOLDOWN, BLOQUEADO)
+    // MODO AÇÃO (Spray, Cooldown, Bloqueado)
     else {
-        display.setTextSize(2); // Texto Médio para alertas
-        display.setCursor(0, 25);
-        display.println(titulo);
+        display.setTextSize(2);
+        // Centralização Manual (Fonte Tam 2 tem ~12px de largura)
+        int x_titulo = (128 - (titulo.length() * 12)) / 2;
+        if(x_titulo < 0) x_titulo = 0;
+
+        display.setCursor(x_titulo, 25);
+        display.print(titulo);
 
         display.setTextSize(1);
-        display.setCursor(0, 55);
-        display.println(rodape);
+        display.setCursor(0, 54);
+        display.print(rodape);
     }
 
     display.display();
@@ -147,12 +139,13 @@ void mostrarTelaPareamento() {
     display.display();
 }
 
-String getHoraAtual() {
+void getHoraAtual(char *buffer, size_t tamanho) {
     struct tm timeinfo;
-    if(!getLocalTime(&timeinfo)) return "---";
-    char timeStringBuff[50];
-    strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M", &timeinfo);
-    return String(timeStringBuff);
+    if(!getLocalTime(&timeinfo)) {
+        strncpy(buffer, "--:--", tamanho);
+        return;
+    }
+    strftime(buffer, tamanho, "%H:%M", &timeinfo);
 }
 
 // --- CORREÇÃO AQUI ---
@@ -210,7 +203,12 @@ bool verificarPodeDisparar() {
         if (sessao_provisionamento_encerrada) { 
             atualizarTela("BLOQUEADO", "Modo DND Ativo");
             delay(2000);
-            atualizarTela("ONLINE", getHoraAtual());
+            
+            // --- CORREÇÃO AQUI ---
+            char horaBuff[10]; // Cria variável temporária
+            getHoraAtual(horaBuff, sizeof(horaBuff)); // Preenche a hora nela
+            atualizarTela("ONLINE", horaBuff); // Usa a variável
+            // ---------------------
         }
         return false; 
     }
@@ -233,7 +231,9 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
                 if(sessao_provisionamento_encerrada) {
                     atualizarTela("COOLDOWN", "Aguarde...");
                     delay(1000);
-                    atualizarTela("ONLINE", getHoraAtual());
+                    char horaTemp[10];
+                    getHoraAtual(horaTemp, sizeof(horaTemp));
+                    atualizarTela("ONLINE", horaTemp);
                 }
                 param->updateAndReport(value(false)); 
                 return; 
@@ -263,13 +263,16 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
                     meuServo.detach(); 
                 }
             }
+            // --- ATUALIZA A HORA DO ULTIMO DISPARO ---
+            getHoraAtual(texto_ultimo_disparo, sizeof(texto_ultimo_disparo));
+            // ------------------------------------------
 
             if (my_switch) {
                  struct tm timeinfo;
                  if(getLocalTime(&timeinfo)){
-                     char timeStringBuff[50];
-                     strftime(timeStringBuff, sizeof(timeStringBuff), "%d/%m as %H:%M", &timeinfo);
-                     my_switch->updateAndReportParam("Ultimo Disparo", timeStringBuff);
+                      char timeStringBuff[50];
+                      strftime(timeStringBuff, sizeof(timeStringBuff), "%d/%m as %H:%M", &timeinfo);
+                      my_switch->updateAndReportParam("Ultimo Disparo", timeStringBuff);
                  }
             }
 
@@ -277,7 +280,14 @@ void write_callback(Device *device, Param *param, const param_val_t val, void *p
             param->updateAndReport(value(false));
             momento_liberacao = millis() + TEMPO_COOLDOWN;
             
-            if(sessao_provisionamento_encerrada) atualizarTela("ONLINE", getHoraAtual());
+            getHoraAtual(texto_ultimo_disparo, sizeof(texto_ultimo_disparo));
+
+            // 2. Atualiza a tela com a hora central
+            if(sessao_provisionamento_encerrada) {
+                char horaTemp[10];
+                getHoraAtual(horaTemp, sizeof(horaTemp));
+                atualizarTela("ONLINE", horaTemp);
+            }
 
         } else {
             digitalWrite(gpio_switch, LOW);
@@ -390,7 +400,10 @@ void loop()
     // SÓ ATUALIZA TELA SE O APP JÁ TERMINOU TUDO E ESTAMOS CONECTADOS
     if (sessao_provisionamento_encerrada && WiFi.status() == WL_CONNECTED) {
         if (millis() - ultimoUpdate > 60000) { 
-            atualizarTela("ONLINE", getHoraAtual());
+            // Cria buffer temporário para passar a hora
+            char horaBuff[10];
+            getHoraAtual(horaBuff, sizeof(horaBuff)); 
+            atualizarTela("ONLINE", horaBuff);
             ultimoUpdate = millis();
         }
     }
@@ -434,9 +447,16 @@ void loop()
             }
 
             if(sessao_provisionamento_encerrada) {
-                String hora = getHoraAtual();
-                if (my_switch) my_switch->updateAndReportParam("Ultimo Disparo", hora.c_str());
-                atualizarTela("ONLINE", hora);
+                // Atualiza variável global
+                getHoraAtual(texto_ultimo_disparo, sizeof(texto_ultimo_disparo));
+                
+                // Cria buffer local para mandar a hora grande
+                char horaAgora[10];
+                getHoraAtual(horaAgora, sizeof(horaAgora));
+
+                if (my_switch) my_switch->updateAndReportParam("Ultimo Disparo", horaAgora);
+                
+                atualizarTela("ONLINE", horaAgora);
             }
 
             digitalWrite(gpio_switch, LOW);
