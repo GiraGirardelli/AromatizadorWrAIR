@@ -70,7 +70,7 @@ void getHoraAtual(char *buffer, size_t tamanho) {
 
 // --- FUNÇÃO DE DESENHO ---
 void atualizarTela(String titulo, String rodape = "", bool limpar = true) {
-    // 1. GUARDA DE SEGURANÇA
+    // 1. SEGURANÇA
     if (!sessao_provisionamento_encerrada && titulo != "SETUP") return;
 
     if (!tela_ligada) return;
@@ -89,7 +89,7 @@ void atualizarTela(String titulo, String rodape = "", bool limpar = true) {
 
     // --- LÓGICA ---
     if (titulo == "ONLINE") {
-        // AQUI É A MUDANÇA: A própria função busca a hora atual!
+        // A própria função busca a hora atual
         char horaBuff[10];
         getHoraAtual(horaBuff, sizeof(horaBuff));
 
@@ -110,7 +110,7 @@ void atualizarTela(String titulo, String rodape = "", bool limpar = true) {
         display.print(texto_ultimo_disparo);
     }
     else {
-        // MODO AÇÃO (Spray, etc)
+        // AÇÃO (Spray, etc)
         display.setTextSize(2);
         int x_titulo = (128 - (titulo.length() * 12)) / 2;
         if(x_titulo < 0) x_titulo = 0;
@@ -150,7 +150,6 @@ void mostrarTelaPareamento() {
 }
 
 
-// --- CORREÇÃO AQUI ---
 void sysProvEvent(arduino_event_t *sys_event)
 {
     switch (sys_event->event_id) {
@@ -165,9 +164,7 @@ void sysProvEvent(arduino_event_t *sys_event)
         break;
         
     case ARDUINO_EVENT_PROV_CRED_SUCCESS:
-        // *** MUDANÇA CRÍTICA ***
-        // REMOVEMOS O STOP AQUI.
-        // Deixamos o Bluetooth ligado para o celular receber a confirmação de sucesso.
+        // Deixa o Bluetooth ligado para o celular receber a confirmação de sucesso.
         Serial.println("Credenciais recebidas! Conectando...");
         break;
 
@@ -208,11 +205,9 @@ bool verificarPodeDisparar() {
             atualizarTela("BLOQUEADO", "Modo DND Ativo");
             delay(2000);
             
-            // --- CORREÇÃO AQUI ---
             char horaBuff[10]; // Cria variável temporária
             getHoraAtual(horaBuff, sizeof(horaBuff)); // Preenche a hora nela
             atualizarTela("ONLINE", horaBuff); // Usa a variável
-            // ---------------------
         }
         return false; 
     }
@@ -425,7 +420,7 @@ void loop()
             sincronizar_tela_app = false;
         }
 
-        // --- 1. TRAVA DE SEGURANÇA (3 Segundos iniciais) ---
+        // --- 1. TRAVA DE SEGURANÇA ---
         if (timestamp_fim_prov != 0) {
             if (millis() - timestamp_fim_prov < 3000) {
                 return; 
@@ -435,13 +430,13 @@ void loop()
             }
         }
 
-        // --- 2. INTERVALO INTELIGENTE E AUTOMAÇÃO DA TELA ---
+        // --- 2. INTERVALO E AUTOMAÇÃO DA TELA ---
         long intervalo = 60000; 
         
         if (ultimoUpdate == 0 || millis() - ultimoUpdate > intervalo) { 
             struct tm timeinfo;
             
-            // Tenta pegar a hora de forma segura (com o zero!)
+            // Tenta pegar a hora de forma segura 
             bool hora_valida = getLocalTime(&timeinfo, 0); 
             
             if(!hora_valida){
