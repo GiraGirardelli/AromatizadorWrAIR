@@ -9,7 +9,7 @@ def run(context):
         root = design.rootComponent
         sketch = root.sketches.add(root.xYConstructionPlane)
         
-        # --- PARÂMETROS REFORÇADOS (EM CM) ---
+        # --- PARÂMETROS (EM CM) ---
         r_min = 1.8    # Raio inicial (18mm) - Mais robusto para o horn
         lift = 1.0     # Curso total (10mm) - Dobro do anterior
         angle_deg = 90 # Mais ângulo para maior precisão de ajuste
