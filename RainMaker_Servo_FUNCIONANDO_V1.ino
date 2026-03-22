@@ -21,7 +21,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // --- CONFIGURAÇÕES ---
 #define DEFAULT_POWER_MODE false 
 const char *service_name = "PROV_aromatizador";
-const char *pop = "12345678"; 
+const char *pop = "123456"; 
 
 // Mecânica
 #define PINO_SERVO 18
@@ -52,9 +52,11 @@ Servo meuServo;
 #if CONFIG_IDF_TARGET_ESP32C3
 static int gpio_0 = 9;
 static int gpio_switch = 7;
+static int gpio_reset = 4;
 #else
 static int gpio_0 = 0;
 static int gpio_switch = 2;
+static int gpio_reset = 4;
 #endif
 
 static Switch *my_switch = NULL;
@@ -81,7 +83,7 @@ void atualizarTela(String titulo, String rodape = "", bool limpar = true) {
     // --- CABEÇALHO ---
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.print(F("NEXUS")); 
+    display.print(F("WrAIR")); 
     display.setCursor(110, 0); 
     if (WiFi.status() == WL_CONNECTED) display.print(F("(W)"));
     else display.print(F("(!)"));
@@ -140,7 +142,7 @@ void mostrarTelaPareamento() {
     display.setCursor(0, 20);
     display.println("Abra App RainMaker");
     display.setCursor(0, 32);
-    display.println("Use 'Sem QR Code'");
+    display.println("No QRCode > BLE'");
 
     display.setTextSize(2);
     display.setCursor(0, 48);
@@ -342,6 +344,7 @@ void setup()
     }
     mostrarTelaPareamento(); 
 
+    pinMode(gpio_reset, INPUT_PULLUP);
     pinMode(gpio_switch, OUTPUT);
     digitalWrite(gpio_switch, DEFAULT_POWER_MODE);
 
@@ -391,7 +394,7 @@ void setup()
     RMaker.enableSchedule();
     RMaker.enableScenes();
     initAppInsights();
-    RMaker.enableSystemService(SYSTEM_SERV_FLAGS_ALL, 2, 2, 2);
+    RMaker.enableSystemService(SYSTEM_SERV_FLAGS_ALL, 0, 0, 0);
 
     RMaker.start();
 
@@ -493,6 +496,18 @@ void loop()
             ultimoUpdate = millis();
         }
     }
-
+    // --- LÓGICA DO BOTÃO DE RESET (CRUA E DIRETA) ---
+    if (digitalRead(gpio_reset) == LOW) {
+        delay(200); // Filtro anti-ruído rápido
+        
+        if (digitalRead(gpio_reset) == LOW) { // Confirma que é um toque real
+            
+            // Só executa o reset do Wi-Fi e pronto
+            RMakerWiFiReset(2); 
+            
+            // Trava o código aqui e espera a placa reiniciar sozinha
+            while(true) delay(100); 
+        }
+    }
     delay(50); // Dá um fôlego para o processador
 }
