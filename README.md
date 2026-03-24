@@ -37,5 +37,25 @@ Com a V1.0 validada e em operação, o desenvolvimento atual está focado na tra
 1. **Custom PCB:** Substituir a perfboard e o ESP32 clássico por uma placa de circuito impresso dedicada, utilizando o módulo **ESP32-C3** (arquitetura RISC-V) para redução drástica de custos e tamanho.
 3. **Sensores Inteligentes:** Integração de um sensor de presença (PIR) para acionamento condicionado à ocupação do ambiente. Além de um sistema para reconhecer a necessidade de troca da essência.
 
+## 🖨️ Guia de Impressão 3D e Montagem
+
+Todos os arquivos `.stl` necessários para a montagem da V1.0 estão na pasta `/3D_Files`. A maioria das peças foi otimizada para ser impressa sem suportes, mas requer atenção a alguns parâmetros específicos de fatiamento.
+
+### Parâmetros Gerais Recomendados
+* **Material:** PLA ou PETG (PETG recomendado para maior resistência térmica próxima ao motor).
+* **Altura da Camada:** 0.20 mm.
+* **Infill (Preenchimento):** 15% a 20% (Gyroid).
+* **Orientação:** Respeitar a orientação original dos arquivos STL para garantir a resistência mecânica das camadas.
+
+### ⚠️ Peças Críticas e Pausas de Impressão (M125)
+
+**1. O Came (came_motor.stl)**
+* Esta peça sofre alto estresse mecânico. É mandatório fatiar com **100% de Infill** (ou aumentar o número de paredes/perímetros para 6+) para garantir que o eixo do servo não espane o plástico.
+
+**2. Base e Tampa Magnética (base_case.stl / tampa_case.stl)**
+* Para embutir os ímãs de neodímio (tamanho Xmm x Ymm) de forma invisível, você deve configurar uma **pausa na impressão** no seu fatiador.
+* **Pausa na Base:** Inserir pausa na camada **XX** (ou na altura X.X mm). Coloque os ímãs, certifique-se de que estão rentes ao plástico e retome a impressão.
+* **Pausa na Tampa:** Inserir pausa na camada **YY** (ou na altura Y.Y mm). **Atenção à polaridade** dos ímãs antes de inserir, para garantir que a tampa seja atraída e não repelida pela base!
+
 ---
 * Sinta-se livre para analisar o código, utilizar os arquivos STL e propor melhorias para as próximas versões.*
