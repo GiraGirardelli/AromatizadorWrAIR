@@ -53,9 +53,10 @@ Todos os arquivos `.stl` necessários para a montagem da V1.0 estão na pasta `/
 * Esta peça sofre alto estresse mecânico. É mandatório fatiar com **100% de Infill** (ou aumentar o número de paredes/perímetros para 6+) para garantir que o eixo do servo não espane o plástico.
 
 **2. Base e Tampa Magnética (base_case.stl / tampa_case.stl)**
-* Para embutir os ímãs de neodímio (tamanho Xmm x Ymm) de forma invisível, você deve configurar uma **pausa na impressão** no seu fatiador.
-* **Pausa na Base:** Inserir pausa na camada **XX** (ou na altura X.X mm). Coloque os ímãs, certifique-se de que estão rentes ao plástico e retome a impressão.
-* **Pausa na Tampa:** Inserir pausa na camada **YY** (ou na altura Y.Y mm). **Atenção à polaridade** dos ímãs antes de inserir, para garantir que a tampa seja atraída e não repelida pela base!
+* Para embutir os ímãs de neodímio (tamanho 4mm x 2mm) de forma invisível, você deve configurar uma **pausa na impressão** no seu fatiador.
+* **Carcaça princial:** Inserir pausa na camada **240** (ou na altura X.X mm). Coloque os ímãs, certifique-se de que estão rentes ao plástico e retome a impressão.
+* **Pausa nas Tampas:** Inserir pausa na camada **15**. **Atenção à polaridade** dos ímãs antes de inserir, para garantir que a tampa seja atraída e não repelida pela base!
+* * **Dica:**  Recomendo o uso de um pouco de cola instatânea (cianoacrilato) nos furos para os imãs para não ter problemas durante o resto da impressão
 
 ---
 * Sinta-se livre para analisar o código, utilizar os arquivos STL e propor melhorias para as próximas versões.*
